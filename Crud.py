@@ -5,17 +5,20 @@ class Product:
     ids_file = "ids_file.txt"
     data_file = "data_file.txt"
     
-    def __init__(self, name, description, quantity, price, created_at):
+    def __init__(self, name, description, quantity, price, created_at, updated_at="Not yet updated"):
         self.__id = self.generateID()
         self.name = name
         self.description = description
         self.quantity = quantity
         self.price = price
         self.created_at = created_at
-        self.updated_at = "Not yet updated"
+        self.updated_at = updated_at
+    
+    def get_id(self):
+        return self.__id
     
     def __str__(self):
-        return f"{self.__id}, {self.name}, {self.description}, {self.quantity}, {self.price}, {self.created_at}"
+        return f"{self.__id}, {self.name}, {self.description}, {self.quantity}, {self.price}, {self.created_at}, {self.updated_at}"
     
     @staticmethod
     def generateID():
@@ -55,21 +58,26 @@ class Product:
             return False  # Failed to save
     
     @staticmethod
-    def load_product():
+    def load_products():
         products = []
         if os.path.exists(Product.data_file):
             with open(Product.data_file, 'r') as file:
                 for line in file:
                     product = Product.from_string(line.strip())
-                    products.append(product)
+                    if product:
+                        products.append(product)
         return products
     
     @staticmethod
     def from_string(data):
-        id, name, description, quantity, price, created_at = data.split(', ')
-        product = Product(name, description, int(quantity), float(price), created_at)
-        product.__id = id
-        return product
+        try:
+            id, name, description, quantity, price, created_at, updated_at = data.split(', ')
+            product = Product(name, description, int(quantity), float(price), created_at, updated_at)
+            product.__id = id
+            return product
+        except ValueError as e:
+            print(f"Error parsing data: {e}")
+            return None
 
 def create_divider(char='-', length=50):
     print(char * length)
@@ -103,7 +111,7 @@ def Create_Product():
 
             if user_input == 'y':
                 is_Correct = True
-                product = Product(name, desc, quantity, formatted_price, created_at)
+                product = Product(name, desc, quantity, formatted_price, created_at, "Not yet updated")
                 if Product.save_product(product):
                     print("Product created successfully!")
                 else:
@@ -123,30 +131,90 @@ def Read_Product():
     create_divider()
     print("Read Products")
     create_divider()
-    products = Product.load_product()
+    products = Product.load_products()
+    
     if products:
+        # Calculate column widths
+        max_id_len = max(len(p.get_id()) for p in products)
+        max_name_len = max(len(p.name) for p in products)
+        max_desc_len = max(len(p.description) for p in products)
+        max_qty_len = max(len(str(p.quantity)) for p in products)
+        max_price_len = max(len(f"{p.price:.2f}") for p in products)
+        max_created_at_len = max(len(p.created_at) for p in products)
+        max_updated_at_len = max(len(p.updated_at) for p in products)
+
+        # Print header
+        header = (f"{'ID':<{max_id_len}} | {'Name':<{max_name_len}} | {'Description':<{max_desc_len}} | "
+                  f"{'Quantity':<{max_qty_len}} | {'Price':<{max_price_len}} | {'Created At':<{max_created_at_len}} | "
+                  f"{'Updated At':<{max_updated_at_len}}")
+        print(header)
+        create_divider()
+
+        # Print each product
         for product in products:
-            print(product)
+            print(f"{product.get_id():<{max_id_len}} | {product.name:<{max_name_len}} | {product.description:<{max_desc_len}} | "
+                  f"{product.quantity:<{max_qty_len}} | {product.price:<{max_price_len}.2f} | {product.created_at:<{max_created_at_len}} | "
+                  f"{product.updated_at:<{max_updated_at_len}}")
+
     else:
         print("No products found.")
     create_divider()
-
+    
 def Update_Product(product_id):
     create_divider()
     print(f"Update Product with ID: {product_id}")
     create_divider()
-    # Implementation for updating a product
-    # Needs more details for completion
-    print("Update functionality not yet implemented.")
+    
+    products = Product.load_products()
+    product_to_update = next((p for p in products if p.get_id() == product_id), None)
+    
+    if product_to_update:
+        # Ask for new details
+        print("Current details:")
+        print(product_to_update)
+        
+        name = input("Enter new name (leave blank to keep current): ") or product_to_update.name
+        desc = input("Enter new description (leave blank to keep current): ") or product_to_update.description
+        quantity = input(f"Enter new quantity (current: {product_to_update.quantity}): ")
+        price = input(f"Enter new price (current: {product_to_update.price}): ")
+        updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Update values
+        if quantity:
+            product_to_update.quantity = int(quantity)
+        if price:
+            product_to_update.price = float(price)
+        product_to_update.name = name
+        product_to_update.description = desc
+        product_to_update.updated_at = updated_at
+        
+        # Save updated products
+        with open(Product.data_file, 'w') as file:
+            for product in products:
+                file.write(str(product) + '\n')
+        
+        print("Product updated successfully!")
+    else:
+        print("Product not found.")
     create_divider()
 
 def Delete_Product(product_id):
     create_divider()
     print(f"Delete Product with ID: {product_id}")
     create_divider()
-    # Implementation for deleting a product
-    # Needs more details for completion
-    print("Delete functionality not yet implemented.")
+    
+    products = Product.load_products()
+    updated_products = [p for p in products if p.get_id() != product_id]
+    
+    if len(updated_products) < len(products):
+        # Save updated products
+        with open(Product.data_file, 'w') as file:
+            for product in updated_products:
+                file.write(str(product) + '\n')
+        
+        print("Product deleted successfully!")
+    else:
+        print("Product not found.")
     create_divider()
 
 def main():
@@ -188,4 +256,4 @@ def main():
             print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
-  main()
+    main()
